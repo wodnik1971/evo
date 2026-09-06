@@ -1,0 +1,39 @@
+name: VIRIDIUM HSA2 E2E
+on:
+  push:
+    branches: [viridium-www-restore]
+  workflow_dispatch:
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check HumanShieldAI API health
+        shell: bash
+        run: |
+          set -euo pipefail
+          URL='https://viridium-hsa2-api-live-viridium.vercel.app/api/health'
+          for i in $(seq 1 18); do
+            code=$(curl -sS -o health.json -w '%{http_code}' --max-time 20 "$URL" || true)
+            echo "health attempt=$i http=$code"
+            cat health.json 2>/dev/null || true
+            echo
+            if [ "$code" = '200' ]; then break; fi
+            sleep 10
+          done
+          test "$code" = '200'
+          grep -q '"ok":true' health.json
+          grep -q '"credential_present":true' health.json
+      - name: Check HumanShieldAI inference
+        shell: bash
+        run: |
+          set -euo pipefail
+          URL='https://viridium-hsa2-api-live-viridium.vercel.app/api/agent'
+          body='{"message":"Dzwoni pracownik banku. Mam natychmiast przelać pieniądze na bezpieczne konto i nikomu nie mówić."}'
+          code=$(curl -sS -o agent.json -w '%{http_code}' --max-time 60 -H 'content-type: application/json' -d "$body" "$URL" || true)
+          echo "agent http=$code"
+          cat agent.json 2>/dev/null || true
+          echo
+          test "$code" = '200'
+          grep -q '"ok":true' agent.json
+          grep -q '"model":"gpt-5.6-sol"' agent.json
+          grep -Eq '"via":"(openai-direct|vercel-ai-gateway)"' agent.json

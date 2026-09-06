@@ -1,0 +1,22 @@
+name: VIRIDIUM Public Probe
+on:
+  push:
+    branches: [viridium-www-restore]
+  workflow_dispatch:
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Probe unprotected Vercel deployment
+        shell: bash
+        run: |
+          set -euo pipefail
+          URL='https://viridium-public-probe-20260906-viridium.vercel.app/'
+          code=$(curl -sS -D headers.txt -o body.txt -w '%{http_code}' --max-time 30 "$URL" || true)
+          echo "http=$code"
+          cat headers.txt || true
+          echo '---body---'
+          cat body.txt || true
+          echo
+          test "$code" = '200'
+          grep -q 'PUBLIC_OK' body.txt
